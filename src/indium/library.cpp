@@ -144,5 +144,9 @@ Indium::PrivateLibrary::~PrivateLibrary() {
 };
 
 std::shared_ptr<Indium::Function> Indium::PrivateLibrary::newFunction(const std::string& name) {
-	return std::make_shared<PrivateFunction>(shared_from_this(), name, _functionInfos[name]);
+	auto it = _functionInfos.find(name);
+	if (it == _functionInfos.end()) {
+		return nullptr;
+	}
+	return std::make_shared<PrivateFunction>(shared_from_this(), name, it->second);
 };

@@ -23,6 +23,9 @@ namespace Indium {
 	public:
 		virtual ~Library() = 0;
 
+		/**
+		 * @returns `nullptr` if this library contains no function with the given name.
+		 */
 		virtual std::shared_ptr<Function> newFunction(const std::string& name) = 0;
 
 		virtual std::shared_ptr<Device> device() = 0;
