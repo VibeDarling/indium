@@ -1149,7 +1149,7 @@ void Iridium::AIR::Function::analyze(SPIRV::Builder& builder, OutputInfo& output
 
 		CFGInfo cfgInfo {};
 
-		if (lastInstOpcode == LLVMBr && DynamicLLVM::LLVMIsConditional(lastInst)) {
+		if ((lastInstOpcode == 71 || (lastInstOpcode == 2 && DynamicLLVM::LLVMIsConditional(lastInst)))) {
 			// check if this is a basic conditional/selection (i.e. an `if`)
 			auto firstBlock = DynamicLLVM::LLVMGetSuccessor(lastInst, 0);
 			auto secondBlock = DynamicLLVM::LLVMGetSuccessor(lastInst, 1);
@@ -1162,7 +1162,7 @@ void Iridium::AIR::Function::analyze(SPIRV::Builder& builder, OutputInfo& output
 			SPIRV::ResultID mergeBlock = SPIRV::ResultIDInvalid;
 
 			// check if the first block is the special block
-			if (lastInstOpcodeFirstBlock == LLVMBr && !DynamicLLVM::LLVMIsConditional(lastInstFirstBlock)) {
+			if ((lastInstOpcodeFirstBlock == 70 || (lastInstOpcodeFirstBlock == 2 && !DynamicLLVM::LLVMIsConditional(lastInstFirstBlock)))) {
 				// make sure the target block is the same
 				auto block = DynamicLLVM::LLVMGetSuccessor(lastInstFirstBlock, 0);
 
@@ -1170,7 +1170,7 @@ void Iridium::AIR::Function::analyze(SPIRV::Builder& builder, OutputInfo& output
 					// perfect, the second block is the merge block then
 					mergeBlock = builder.lookupResultID(reinterpret_cast<uintptr_t>(secondBlock));
 				}
-			} else if (lastInstOpcodeSecondBlock == LLVMBr && !DynamicLLVM::LLVMIsConditional(lastInstSecondBlock)) {
+			} else if ((lastInstOpcodeSecondBlock == 70 || (lastInstOpcodeSecondBlock == 2 && !DynamicLLVM::LLVMIsConditional(lastInstSecondBlock)))) {
 				// make sure the target block is the same
 				auto block = DynamicLLVM::LLVMGetSuccessor(lastInstSecondBlock, 0);
 
@@ -1654,7 +1654,14 @@ void Iridium::AIR::Function::analyze(SPIRV::Builder& builder, OutputInfo& output
 					builder.setResultType(resID, type);
 				} break;
 
-				case LLVMBr: {
+#if defined(LLVMUncondBr)
+				case LLVMUncondBr:
+				case LLVMCondBr:
+#else
+				case 70:
+				case 71:
+#endif
+				case 2: {
 					if (DynamicLLVM::LLVMIsConditional(inst)) {
 						auto condition = DynamicLLVM::LLVMGetCondition(inst);
 						auto trueLabel = DynamicLLVM::LLVMBasicBlockAsValue(DynamicLLVM::LLVMGetSuccessor(inst, 0));
