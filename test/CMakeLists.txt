@@ -23,3 +23,21 @@ foreach(target indium-test-cube indium-test-cubemap indium-test-lighting indium-
 endforeach()
 
 add_subdirectory(texture-usage)
+
+# Standalone translator checks: each includes src/iridium/air.cpp and authors its input
+# through LLVM's C API, so it links libLLVM directly. physical-gep compares disassembly and
+# validates modules, so ENABLE_TESTS requires SPIRV-Tools rather than skipping that check.
+find_program(SPIRV_DIS spirv-dis REQUIRED)
+find_program(SPIRV_VAL spirv-val REQUIRED)
+get_filename_component(INDIUM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+function(add_iridium_check target source)
+	add_executable(${target} ${source} "${INDIUM_ROOT}/src/iridium/spirv.cpp" "${INDIUM_ROOT}/src/iridium/dynamic-llvm.cpp")
+	target_include_directories(${target} PRIVATE "${INDIUM_ROOT}/include" "${INDIUM_ROOT}/private-include" ${LLVM_INCLUDE_DIRS})
+	target_compile_definitions(${target} PRIVATE "HOST_LLVM_LIBNAME=\"${HOST_LLVM_LIBNAME}\"")
+	target_link_libraries(${target} PRIVATE LLVM dl)
+	set_target_properties(${target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+endfunction()
+
+add_iridium_check(indium-test-physical-gep physical-gep/physical-gep.cpp)
+add_test(NAME physical-gep
+	COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/physical-gep/check.sh" $<TARGET_FILE:indium-test-physical-gep> "${CMAKE_CURRENT_BINARY_DIR}/physical-gep-out")
