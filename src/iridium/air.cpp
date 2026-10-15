@@ -270,7 +270,8 @@ static std::optional<Iridium::SPIRV::Type> spirvScalarTypeForMetalBase(std::stri
 }
 
 // air.convert.f.<to>.f.<from> converts between floating-point types of different widths,
-// where each type is a scalar (f16, f32, f64) or a vector of them (v4f16, ...)
+// where each type is a scalar (f16, f32) or a vector of them (v4f16, ...). MSL has no double
+// type, so f64 names are rejected rather than lowered to Float64 code.
 static bool isFloatWidthConversion(std::string_view name) {
 	constexpr std::string_view prefix = "air.convert.";
 	if (name.substr(0, prefix.size()) != prefix) {
@@ -280,32 +281,34 @@ static bool isFloatWidthConversion(std::string_view name) {
 	std::string_view parts[4];
 	size_t count = 0;
 	std::string_view rest = name.substr(prefix.size());
-	while (count < 4) {
+	while (true) {
+		if (count == 4) {
+			return false;
+		}
 		auto dot = rest.find('.');
 		parts[count++] = rest.substr(0, dot);
 		if (dot == std::string_view::npos) {
-			rest = {};
 			break;
 		}
 		rest.remove_prefix(dot + 1);
 	}
 
+	// Metal vector types have 2, 3 or 4 components (MSL specification, vector data types).
 	auto element = [](std::string_view type, std::string_view& scalar, std::string_view& vector) {
 		vector = {};
 		if (!type.empty() && type[0] == 'v') {
-			size_t digits = 1;
-			while (digits < type.size() && type[digits] >= '0' && type[digits] <= '9') {
-				++digits;
+			if (type.size() < 2 || type[1] < '2' || type[1] > '4') {
+				return false;
 			}
-			vector = type.substr(0, digits);
-			type.remove_prefix(digits);
+			vector = type.substr(0, 2);
+			type.remove_prefix(2);
 		}
 		scalar = type;
-		return scalar == "f16" || scalar == "f32" || scalar == "f64";
+		return scalar == "f16" || scalar == "f32";
 	};
 
 	std::string_view toScalar, toVector, fromScalar, fromVector;
-	return count == 4 && rest.empty() && parts[0] == "f" && parts[2] == "f"
+	return count == 4 && parts[0] == "f" && parts[2] == "f"
 		&& element(parts[1], toScalar, toVector) && element(parts[3], fromScalar, fromVector)
 		&& toVector == fromVector && toScalar != fromScalar;
 }
