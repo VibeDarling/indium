@@ -67,6 +67,12 @@ public:
 	const char* what() const noexcept override { return _message.c_str(); }
 };
 
+// The distance between consecutive objects of a type: its size rounded up to its
+// alignment (12-byte float3 objects sit 16 bytes apart).
+static size_t allocationSize(const Iridium::SPIRV::Type& type) {
+	return (type.size + type.alignment - 1) & ~(type.alignment - 1);
+}
+
 static Iridium::SPIRV::ResultID llvmTypeToSPIRVType(Iridium::SPIRV::Builder& builder, LLVMTypeRef llvmType) {
 	using namespace Iridium::SPIRV;
 
@@ -140,7 +146,7 @@ static Iridium::SPIRV::ResultID llvmTypeToSPIRVType(Iridium::SPIRV::Builder& bui
 				offset = (offset + (alignmentToUse - 1)) & ~(alignmentToUse - 1);
 				members.push_back(Type::Member { type, offset, {} });
 				// increment the offset
-				offset += typeInst.size;
+				offset += allocationSize(typeInst);
 			}
 			// align the final offset to determine the structure size
 			offset = (offset + (structAlignment - 1)) & ~(structAlignment - 1);
@@ -572,7 +578,7 @@ static Iridium::SPIRV::ResultID llvmGEPToResultID(Iridium::SPIRV::Builder& build
 		// as floats or float4s). Compute the byte offset from the source
 		// element type's own layout and form the typed pointer directly.
 		auto sourceType = *builder.reverseLookupType(llvmTypeToSPIRVType(builder, DynamicLLVM::LLVMGetGEPSourceElementType(inst)));
-		auto offset = builder.encodeArithBinop(SPIRV::Opcode::IMul, uint64Type, indices[0], builder.declareConstantScalar<uint64_t>(sourceType.size));
+		auto offset = builder.encodeArithBinop(SPIRV::Opcode::IMul, uint64Type, indices[0], builder.declareConstantScalar<uint64_t>(allocationSize(sourceType)));
 		auto layoutType = DynamicLLVM::LLVMGetGEPSourceElementType(inst);
 
 		for (size_t i = 2; i < operandCount; ++i) {
@@ -595,7 +601,7 @@ static Iridium::SPIRV::ResultID llvmGEPToResultID(Iridium::SPIRV::Builder& build
 					auto elementType = DynamicLLVM::LLVMGetElementType(layoutType);
 					auto element = *builder.reverseLookupType(llvmTypeToSPIRVType(builder, elementType));
 					auto stride = DynamicLLVM::LLVMGetTypeKind(layoutType) == LLVMArrayTypeKind
-						? (element.size + element.alignment - 1) & ~(element.alignment - 1)
+						? allocationSize(element)
 						: element.size;
 					auto index = indices[i - 1];
 					auto indexWidth = DynamicLLVM::LLVMGetIntTypeWidth(DynamicLLVM::LLVMTypeOf(llindex));
