@@ -56,3 +56,5 @@ target_compile_definitions(indium-test-dynamic-llvm-mismatch PRIVATE "HOST_LLVM_
 target_link_libraries(indium-test-dynamic-llvm-mismatch PRIVATE dl)
 set_target_properties(indium-test-dynamic-llvm-mismatch PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 add_test(NAME dynamic-llvm-mismatch COMMAND indium-test-dynamic-llvm-mismatch)
+# the top-level LLVM discovery block, run against fake llvm-config trees
+add_test(NAME llvm-discovery COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/llvm-discovery/check.sh")
